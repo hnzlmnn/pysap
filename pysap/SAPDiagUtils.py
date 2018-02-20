@@ -14,7 +14,7 @@ from scapy.packet import bind_layers
 import pysap
 from pysap.SAPNI import SAPNI
 from pysap.SAPDiagItems import *
-from pysap.SAPDiag import (SAPDiag, SAPDiagDP, DiagError)
+from pysap.SAPDiag import (SAPDiag, SAPDiagDP)
 from pysap.SAPDiagRFC import SAPDiagRFC, SAPDiagRFCItem
 from pysap.SAPDiagRFCItems import *
 
@@ -27,6 +27,8 @@ bind_layers(SAPDiagItem, SAPDiagItem, )
 bind_layers(SAPDiagItem, SAPDiagRFC, )
 bind_layers(SAPDiagRFC, SAPDiagRFCItem, )
 
+class SAPDiagError(Exception):
+    pass
 
 class SAPDiagUtils:
 
@@ -139,4 +141,4 @@ class SAPDiagUtils:
     def raise_if_error(response):
         error = SAPDiagUtils.get_error(response)
         if error:
-            raise DiagError(error)
+            raise SAPDiagError(error)
