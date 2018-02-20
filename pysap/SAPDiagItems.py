@@ -642,3 +642,29 @@ class SAPDiagSES(PacketNoPadded):
     ]
 
 bind_diagitem(SAPDiagSES, 0x01)
+
+
+# Diag APPL DYNN CHL
+class SAPDiagAPPL_DYNN_CHL(PacketNoPadded):
+    name = "APPL_DYNN_CHL"
+    fields_desc = [
+        ShortField("srcflg", 0),
+        ShortField("chlflag", 0),
+        ByteField("current_row", 0),
+        ByteField("current_column", 0),
+        ByteField("v_slider_size", 0),
+        ByteField("dimlist_row", 0),
+        ByteField("dimlist_col", 0),
+        ByteField("h_slider_size", 0),
+        ByteField("dim_row", 0),
+        ByteField("dim_col", 0),
+        ShortField("maxlist_row", 0),
+        ShortField("listrowoffset", 0),
+        ByteField("maxlist_col", 0),
+        ByteField("listcoloffset", 0),
+        IntField("padd", 0),
+    ]
+
+
+bind_diagitem(SAPDiagAPPL_DYNN_CHL, 0x10, 0x05, 0x01)
+

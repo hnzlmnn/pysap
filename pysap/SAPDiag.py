@@ -627,6 +627,10 @@ class SAPDiag(PacketNoPadded):
 
         return items
 
+    def get_rfc(self):
+        rfcs = []
+        rfcs.extend(self.get_item("APPL", "RFC_TR", "RFC_TR_MOR"))
+        return rfcs
 
 class SAPDiagError(PacketNoPadded):
     """SAP Diag Error packet

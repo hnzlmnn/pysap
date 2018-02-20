@@ -28,6 +28,7 @@ from pysap.SAPDiagItems import (user_connect_compressed,
                                 user_connect_uncompressed,
                                 support_data as default_support_data,
                                 SAPDiagStep, SAPDiagSupportBits)
+from pysap.SAPDiagUtils import SAPDiagUtils
 
 
 class SAPDiagConnection(object):
@@ -149,11 +150,13 @@ class SAPDiagConnection(object):
             user_connect = user_connect_uncompressed
 
         # The initialization is always performed uncompressed
-        self.initialized = True  # XXX: Check that the respose was ok
-
-        return self.sr(SAPDiagDP(terminal=self.terminal) /
-                       SAPDiag(compress=0, com_flag_TERM_INI=1) /
-                       user_connect / self.support_data)
+        response = self.sr(SAPDiagDP(terminal=self.terminal) /
+                           SAPDiag(compress=0, com_flag_TERM_INI=1) /
+                           user_connect / self.support_data)
+        # If the connection could not be established, an exception is thrown
+        SAPDiagUtils.raise_if_error(response)
+        self.initialized = True
+        return response
 
     def send(self, packet):
         """Sends a packet using the :class:`SAPNIStreamSocket`
@@ -189,8 +192,8 @@ class SAPDiagConnection(object):
         """
         if self._connection is not None:
             self.send(packet)
-            self.last_response = self.receive()
-            return self.last_response
+            # self.receive() additionally saves the response in self.last_response
+            return self.receive()
         else:
             return None
 
