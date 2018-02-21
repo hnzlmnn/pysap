@@ -27,8 +27,10 @@ bind_layers(SAPDiagItem, SAPDiagItem, )
 bind_layers(SAPDiagItem, SAPDiagRFC, )
 bind_layers(SAPDiagRFC, SAPDiagRFCItem, )
 
+
 class SAPDiagError(Exception):
     pass
+
 
 class SAPDiagUtils:
 
@@ -70,59 +72,175 @@ class SAPDiagUtils:
             imodenumber = response[SAPDiag].get_item("APPL", "ST_R3INFO", "IMODENUMBER")[0].item_value
             if imodenumber == "\x00\x01":
                 return True, ""
-        print(response.show())
         return False, "Unknow error"
 
     @staticmethod
-    def dump_rfc_data(responses):
+    def get_diag_items(responses):
+        """
+        Add all SAPDiagItems from all SAPDiag packages to a new SAPDiag package
+        :param responses: List of responses
+        :return: SAPDiag package containing all SAPDiagItems
+        """
+        items = []
         for response in responses:
-            try:
-                rfc = response[SAPDiag].get_rfc()
-                # for response in rfc:
-                #     print(response.show())
-                tables = rfc[0].item_value.get_items_following(
-                    0x03, 0x02, 0x03, 0x05,
-                    types=(0x03, 0x05, 0x03, 0x05),
-                    attribute="item_value"
-                )
-                from pprint import pprint
-                for table in tables:
-                    # pprint(table)
-                    ch = None
-                    compressed = ""
-                    for chunk in table:
-                        if isinstance(chunk, SAPDiagRFCTableContentFirst):
-                            ch = chunk.table_compression_header
-                        compressed += chunk.table_content
-                    # print(ch.uncompressed_length)
-                        (_, _, decompressed) = pysapcompress.decompress(str(ch) + compressed, ch.uncompressed_length)
-                    print("length", len(decompressed), "type", type(decompressed), "decompressed:", decompressed)
+            items.extend([item for item in response[SAPDiag].message])
+        return items
 
-                # print(response[SAPDiag].get_item("APPL", "RFC_TR", "RFC_TR_MOR")[0].item_value)
-                # print(response[SAPDiagRFC])
-                # print(response.show2())
-                continue
-            except IndexError as error:
-                print("IndexError", error)
-                pass
-            except AttributeError as error:
-                print("AttributeError", error)
-                pass
-            except TypeError as error:
-                print("TypeError", error)
-                pass
-            except:
-                raise
-            print("No RFC")
-        from SAPDiagRFC import rfc_unregistered_ids
-        # print(rfc_unregistered_ids)
+    @staticmethod
+    def get_rfc_items(responses):
+        """
+        Create a new SAPDiagRFC package containing all SAPDiagRFCItems from all responses
+        :param responses: List of responses
+        :return: SAPDiagRFC package containing all SAPDiagRFCItems
+        """
+        valid_types = [
+            (16, 8, 4)
+        ]
+        rfc_items = []
+        for item in SAPDiagUtils.get_diag_items(responses):
+            if (item.item_type, item.item_id, item.item_sid) in valid_types:
+                rfc_items.extend(item.item_value.message)
+        return rfc_items
+
+    @staticmethod
+    def search_following(items, selector=None, following=None, extract=None):
+        chains = []
+        if type(following) in [int, long]:
+            is_following = lambda item, length, i: length < following
+        elif callable(following):
+            is_following = following
+        else:
+            is_following = lambda item, length, i: False
+        if not callable(extract):
+            extract = lambda item: item
+        if callable(selector):
+            i = 0
+            chain = []
+            while i < len(items):
+                if selector(items[i]) is True:
+                    if (len(chain) is 0):
+                        chain.append(extract(items[i]))
+                    else:
+                        chains.append(chain)
+                        chain = [extract(items[i])]
+                elif len(chain) > 0 and is_following(items[i], len(chain), i):
+                    chain.append(extract(items[i]))
+                else:
+                    if (len(chain) > 0):
+                        chains.append(chain)
+                    chain = []
+                i += 1
+            if (len(chain) > 0):
+                chains.append(chain)
+        return chains
+
+    @staticmethod
+    def rfc_item_type_match(item, types=None):
+        if types is None:
+            types = []
+        elif type(types) == tuple:
+            types = [types]
+        return (item.item_id1, item.item_id2, item.item_id3, item.item_id4) in types
+
+    @staticmethod
+    def get_tables(responses):
+        tables_uncompressed = []
+        rfc_items = SAPDiagUtils.get_rfc_items(responses)
+        tables = SAPDiagUtils.search_following(
+            rfc_items,
+            lambda item: SAPDiagUtils.rfc_item_type_match(item, (0x03, 0x02, 0x03, 0x05)),
+            lambda item, length, i: SAPDiagUtils.rfc_item_type_match(item, (0x03, 0x05, 0x03, 0x05)),
+            lambda item: item.item_value
+        )
+        for table in tables:
+            ch = None
+            compressed = ""
+            for chunk in table:
+                import binascii
+                print(binascii.hexlify(chunk.table_content)[:20])
+                # print("chunk", chunk.item_id1, chunk.item_id2, chunk.item_id3, chunk.item_id4)
+                if isinstance(chunk, SAPDiagRFCTableContentFirst):
+                    ch = chunk.table_compression_header
+                compressed += chunk.table_content
+            if ch and compressed is not "":
+                print(len(compressed), ch, len(table))
+                (_, _, decompressed) = pysapcompress.decompress(str(ch) + compressed, ch.uncompressed_length)
+                tables_uncompressed.append(decompressed)
+                print("length", len(decompressed), "type", type(decompressed), "decompressed:", decompressed)
+        return tables_uncompressed
+
+    @staticmethod
+    def dump_rfc_data(responses):
+        rfc_items = SAPDiagUtils.get_rfc_items(responses)
+        tables = SAPDiagUtils.search_following(
+            rfc_items,
+            lambda item: SAPDiagUtils.rfc_item_type_match(item, (0x03, 0x02, 0x03, 0x05)),
+            lambda item, length, i: SAPDiagUtils.rfc_item_type_match(item, (0x03, 0x05, 0x03, 0x05)),
+            lambda item: item.item_value
+        )
+        print("tables", len(tables))
+        for table in tables:
+            print("table", len(table))
+            ch = None
+            compressed = ""
+            for chunk in table:
+                import binascii
+                print(binascii.hexlify(chunk.table_content)[:20])
+                # print("chunk", chunk.item_id1, chunk.item_id2, chunk.item_id3, chunk.item_id4)
+                if isinstance(chunk, SAPDiagRFCTableContentFirst):
+                    ch = chunk.table_compression_header
+                compressed += chunk.table_content
+            if ch and compressed is not "":
+                print(ch, compressed)
+                (_, _, decompressed) = pysapcompress.decompress(str(ch) + compressed, ch.uncompressed_length)
+                print("length", len(decompressed), "type", type(decompressed), "decompressed:", decompressed)
+        return
+
+    # try:
+    #     rfc = response[SAPDiag].get_rfc()
+    #     for response in rfc:
+    #         print(response.show())
+    #     tables = rfc[0].item_value.get_items_following(
+    #         0x03, 0x02, 0x03, 0x05,
+    #         types=(0x03, 0x05, 0x03, 0x05),
+    #         attribute="item_value"
+    #     )
+    #     tables = response[SAPDiag]
+    #
+    #     from pprint import pprint
+    #
+    #     # print(response[SAPDiag].get_item("APPL", "RFC_TR", "RFC_TR_MOR")[0].item_value)
+    #     # print(response[SAPDiagRFC])
+    #     # print(response.show2())
+    #     continue
+    # except IndexError as error:
+    #     print("IndexError", error)
+    #     pass
+    # except AttributeError as error:
+    #     print("AttributeError", error)
+    #     pass
+    # except TypeError as error:
+    #     print("TypeError", error)
+    #     pass
+    # except:
+    #     raise
+    # print("No RFC")
+    # from SAPDiagRFC import rfc_unregistered_ids
+    # # print(rfc_unregistered_ids)
+
 
     @staticmethod
     def support_data():
         from pysap.SAPDiagItems import support_data_sapgui_702_java5 as support_data
-        # support_data_sapnw_750.setfieldval("RFC_DIALOG", 0)
-        # support_data.setfieldval("NORFC", 1)
+        # support_data.setfieldval("RFC_DIALOG", 0) # this results in an invalid gui
+        # support_data.setfieldval("PROGRESS_INDICATOR", 0)
+        # support_data.setfieldval("SAPGUI_SELECT_RECT", 0)
+        # support_data.setfieldval("NORFC", 0)
+        # support_data.setfieldval("NOTGUI", 0)
+        support_data.setfieldval("RFC_COMPRESS", 0)
+        support_data.setfieldval("RFC_QUEUE", 0)
         return support_data
+
 
     @staticmethod
     def get_error(response):
@@ -136,6 +254,7 @@ class SAPDiagUtils:
         except:
             pass
         return None
+
 
     @staticmethod
     def raise_if_error(response):

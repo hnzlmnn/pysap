@@ -627,9 +627,16 @@ class SAPDiag(PacketNoPadded):
 
         return items
 
-    def get_rfc(self):
+    def get_rfc(self, extract_value=True):
         rfcs = []
-        rfcs.extend(self.get_item("APPL", "RFC_TR", "RFC_TR_MOR"))
+        for item in self.get_item("APPL", "RFC_TR", "RFC_TR_MOR"):
+            if extract_value:
+                try:
+                    rfcs.append(item.item_value)
+                except KeyError:
+                    pass
+            else:
+                rfcs.append(item)
         return rfcs
 
 class SAPDiagError(PacketNoPadded):
