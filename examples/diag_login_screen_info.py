@@ -176,7 +176,7 @@ def parse_options():
                                                          "url": pysap.__url__,
                                                          "repo": pysap.__repo__}
 
-    usage = "Usage: %prog [options] -H <remote host>"
+    usage = "Usage: %prog [options] -d <remote host>"
 
     parser = OptionParser(usage=usage, description=description, epilog=epilog)
 
