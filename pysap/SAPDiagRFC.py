@@ -180,9 +180,7 @@ def rfc_item_get_class(pkt, item_id1, item_id2, item_id3=None, item_id4=None):
         if item_id3 and item_id4 and \
                 item_id3 in rfc_item_classes[item_id1][item_id2] and \
                 item_id4 in rfc_item_classes[item_id1][item_id2][item_id3]:
-            print(item_id1, item_id2, item_id3, item_id4, rfc_item_classes[item_id1][item_id2][item_id3][item_id4])
             return rfc_item_classes[item_id1][item_id2][item_id3][item_id4]
-        print(item_id1, item_id2, rfc_item_classes[item_id1][item_id2])
         if not isinstance(rfc_item_classes[item_id1][item_id2], dict):
             return rfc_item_classes[item_id1][item_id2]
     rfc_unregistered_ids.append((item_id1, item_id2, item_id3, item_id4, pkt))
@@ -290,7 +288,6 @@ class SAPDiagRFC(PacketNoPadded):
             types = []
         elif type(types) is tuple:
             types = [types]
-        print(item_id1, item_id2, item_id3, item_id4, types, self.get_item_indexes(item_id1, item_id2, item_id3, item_id4))
         for i in self.get_item_indexes(item_id1, item_id2, item_id3, item_id4):
             items = []
             while i + len(items) < len(self.message):

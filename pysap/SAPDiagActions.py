@@ -29,40 +29,40 @@ class SAPDiagActions:
     def init(self):
         self.login_screen = self.connection.init()
         self.initialized = True
-        SAPDiagUtils.raise_if_error(self.login_screen)
+        SAPDiagUtils.assert_no_error(self.login_screen)
         return self.login_screen
 
-    def interact(self, message, stepnumber=None):
+    def interact(self, message, count=1):
         assert self.initialized
-        if stepnumber is not None:
-            print("stepnumber", stepnumber)
-            message.insert(0, SAPDiagPackages.dialog_step_number(stepnumber)),
-            message.append(SAPDiagPackages.eom())
-            print(message)
-            return self.connection.sr_message(message)
+        responses = [self.connection.interact(message)]
+        responses.extend(self.receive(count - 1))
         # interact appends step number and eom
-        return self.connection.interact(message)
+        return responses
+
+    def receive(self, count=1):
+        assert self.initialized
+        responses = []
+        for i in range(0, count):
+            responses.append(self.connection.receive())
+        # interact appends step number and eom
+        return responses
 
     def login(self, username, password, client):
         # Send the login using the given username, password and client
-        response = self.interact([
+        responses = self.interact([
             SAPDiagPackages.ses(eventarray=1),
             SAPDiagPackages.appl_dynn_chl(scrflg=0x05),
             SAPDiagPackages.login(username, password, client),
             SAPDiagPackages.empty_xml_block(0x11),
         ])
-
-        result, status = SAPDiagUtils.is_successful_login(response, username)
+        result, status = SAPDiagUtils.is_successful_login(responses[0], username)
         if not result and self.verbose:
             print(status)
+        if result:
+            responses.extend(self.receive(4))
         return result
 
-    def run_tcode(self, tcode, response_count=2, **fields):
-        step = None
-        try:
-            step = fields["step"]
-        except KeyError:
-            pass
+    def run_tcode(self, tcode, count=1, **fields):
         pcap = None
         try:
             pcap = fields["pcap"]
@@ -70,17 +70,17 @@ class SAPDiagActions:
             pass
         if pcap:
             return rdpcap(pcap)
-        responses = [
-            self.interact([
-                SAPDiagPackages.ses(eventarray=0),
-                SAPDiagPackages.tcode(tcode),
-                SAPDiagPackages.appl_dynn_chl(scrflg=0x11),
-                SAPDiagPackages.empty_xml_block(0x11),
-            ], step)
-        ]
-        for i in range(response_count - 1):
-            responses.append(self.connection.receive())
+        responses = self.interact([
+            SAPDiagPackages.ses(eventarray=0),
+            SAPDiagPackages.tcode(tcode),
+            SAPDiagPackages.appl_dynn_chl(scrflg=0x11),
+            SAPDiagPackages.empty_xml_block(0x11),
+        ], count)
         return responses
 
     def finish(self):
         self.connection.close()
+
+    def read_all_responses(self, timeout=10, count=1):
+        for i in range(0, count):
+            self.connection.receive()

@@ -154,7 +154,7 @@ class SAPDiagConnection(object):
                            SAPDiag(compress=0, com_flag_TERM_INI=1) /
                            user_connect / self.support_data)
         # If the connection could not be established, an exception is thrown
-        SAPDiagUtils.raise_if_error(response)
+        SAPDiagUtils.assert_no_error(response)
         self.initialized = True
         return response
 

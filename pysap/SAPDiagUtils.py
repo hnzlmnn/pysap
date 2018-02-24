@@ -237,27 +237,37 @@ class SAPDiagUtils:
         # support_data.setfieldval("SAPGUI_SELECT_RECT", 0)
         # support_data.setfieldval("NORFC", 0)
         # support_data.setfieldval("NOTGUI", 0)
-        support_data.setfieldval("RFC_COMPRESS", 0)
+        support_data.setfieldval("RFC_COMPRESS", 1) # check if useful
         support_data.setfieldval("RFC_QUEUE", 0)
+        support_data.setfieldval("RFC_ASYNC_BLOB", 0)
+        # support_data.setfieldval("NO_EASYACCESS", 1) # destroys my tcode call, idk why
+        # interesting
+        support_data.setfieldval("RFCBLOB_DIAG_PARSER", 0) # increases size (in length field)
+        # to test
+        # support_data.setfieldval("WEBGUI", 1) # doesn't do anything?!
+        support_data.setfieldval("ENABLE_UTF8", 0)
+        # support_data.setfieldval("ENABLE_APPL4", 0) # what does this do?
         return support_data
 
 
     @staticmethod
     def get_error(response):
         try:
-            print(response[SAPDiag].info)
-            if response[SAPDiag].info == u"\u6e69\u6176\u696c\u2064\u7567\u2069\u6f63\u6e6e\u6365\u2074\u6164\u6174":
-                return "Invalid GUI connect data"
-            elif response[SAPDiag].info == "\x69\x6e\x76\x61\x6c\x69\x64\x20\x67\x75\x69\x20\x64\x61\x74\x61":
-                return "Invalid GUI connect data"
-
-        except:
+            if response[SAPDiag].info:
+                print(response[SAPDiag].info)
+                if response[SAPDiag].info == u"\u6e69\u6176\u696c\u2064\u7567\u2069\u6f63\u6e6e\u6365\u2074\u6164\u6174":
+                    return "Invalid GUI connect data"
+                elif response[SAPDiag].info == "\x69\x6e\x76\x61\x6c\x69\x64\x20\x67\x75\x69\x20\x64\x61\x74\x61":
+                    return "Invalid GUI connect data"
+        except KeyboardInterrupt:
+            raise
+        except (KeyError, ValueError, TypeError):
             pass
         return None
 
 
     @staticmethod
-    def raise_if_error(response):
+    def assert_no_error(response):
         error = SAPDiagUtils.get_error(response)
         if error:
             raise SAPDiagError(error)

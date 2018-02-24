@@ -260,19 +260,20 @@ def run(options):
     #     show_text_info(item)
     # print "-" * key_len + "-" * val_len
 
-    actions = SAPDiagActions(host=options.remote_host,
-                             port=options.remote_port,
-                             terminal=options.terminal,
-                             route=options.route_string,
-                             verbose=options.verbose,
-                             username=options.username,
-                             password=options.password,
-                             client=options.client
-                             )
+    actions = SAPDiagActions(
+        host=options.remote_host,
+        port=options.remote_port,
+        terminal=options.terminal,
+        route=options.route_string,
+        verbose=options.verbose,
+        username=options.username,
+        password=options.password,
+        client=options.client
+    )
 
     # try to login
     login_status = actions.loggedin
-    print(login_status)
+    print("login", login_status)
 
     if not login_status:
         return
@@ -280,7 +281,7 @@ def run(options):
     # rsusr003 = run_transaction_rsusr003_1(connection, "rsusr003", options.verbose)
     # print(rsusr003[SAPDiag].get_item("APPL", "ST_R3INFO", "CONTEXTID")[0].item_value))
 
-    zbasic = actions.run_tcode("rsusr003", 5)
+    zbasic = actions.run_tcode("rsusr003")
 
     # zbasic[0].show()
 
